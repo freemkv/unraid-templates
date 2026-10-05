@@ -1,0 +1,29 @@
+name: Validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  xml:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Templates are well-formed and complete
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y -qq libxml2-utils >/dev/null
+          for f in *.xml; do
+            xmllint --noout "$f"
+            for x in Name Repository WebUI Icon TemplateURL Support Project Overview; do
+              test -n "$(xmllint --xpath "string(/Container/$x)" "$f")" || { echo "$f: missing $x"; exit 1; }
+            done
+            url=$(xmllint --xpath 'string(/Container/TemplateURL)' "$f")
+            test "$url" = "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/$f"
+            curl -fsSI "$(xmllint --xpath 'string(/Container/Icon)' "$f")" >/dev/null
+            echo "$f ok"
+          done
